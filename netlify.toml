@@ -1,5 +1,10 @@
 [build]
   command = "npm run build"
 
+# Next.js 16 requires Node 20.9+. Pin a current LTS so Netlify's build
+# and serverless function runtime both use a compatible version.
+[build.environment]
+  NODE_VERSION = "22"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
