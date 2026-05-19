@@ -1,36 +1,130 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Proposals
 
-## Getting Started
+Generate polished client proposals with AI, share them as a web page, and
+collect a signature and payment — all in one flow.
 
-First, run the development server:
+- **Sign in** with email + password (Supabase Auth)
+- **Dashboard** of all your proposals with live status
+- **New proposal** → describe the project in a sentence or two → Claude
+  **Opus 4.7** drafts a complete 12-section proposal
+- **Edit** any section, then **Send** to get a shareable public link
+- The **client** opens the link (no login), **signs** (typed or drawn), and
+  **pays** the full amount via Stripe
+- A celebratory animation plays once signed + paid
+- You get **email + dashboard** updates at every step
+
+## Tech stack
+
+Next.js (App Router) · Supabase (Postgres + Auth) · Anthropic Claude ·
+Stripe Checkout · Resend · Tailwind CSS · deployed on Netlify.
+
+---
+
+## 1. Prerequisites
+
+- Node.js 18.18+ (Node 20+ recommended)
+- Accounts (all have free tiers): Supabase, Anthropic, Stripe, Resend, Netlify
+
+## 2. Install
+
+```bash
+npm install
+cp .env.example .env.local
+```
+
+Fill in `.env.local` as you complete the steps below.
+
+## 3. Supabase (database + auth)
+
+1. Create a project at <https://supabase.com>.
+2. **SQL Editor → New query** → paste the contents of
+   [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) → **Run**.
+   This creates the tables, triggers, and Row Level Security policies.
+3. **Project Settings → API** → copy into `.env.local`:
+   - Project URL → `NEXT_PUBLIC_SUPABASE_URL`
+   - `anon` `public` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY` (keep secret)
+4. **Authentication → Providers → Email**: for fast local testing, turn
+   **off** "Confirm email" so new sign-ups can log in immediately. (Leave it
+   on in production.)
+
+## 4. Anthropic (AI generation)
+
+1. Create an API key at <https://console.anthropic.com> → **API Keys**.
+2. Set `ANTHROPIC_API_KEY` in `.env.local`.
+
+## 5. Stripe (payments)
+
+1. At <https://dashboard.stripe.com>, stay in **Test mode**.
+2. **Developers → API keys** → copy into `.env.local`:
+   - Secret key → `STRIPE_SECRET_KEY`
+   - Publishable key → `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+3. Webhook secret — see step 8 (local) or step 9 (production).
+   Payment still completes without it (the return page confirms directly with
+   Stripe), but the webhook is the reliable backstop.
+
+## 6. Resend (email notifications — optional)
+
+1. Create an API key at <https://resend.com> → **API Keys** → set `RESEND_API_KEY`.
+2. `RESEND_FROM_EMAIL` defaults to `onboarding@resend.dev` (works for testing).
+   Use an address on a verified domain for production.
+   If you skip Resend entirely, the app still works — emails are just no-ops.
+
+## 7. Run locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>, create an account, and generate a proposal.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 8. Test the Stripe webhook locally (optional)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+stripe login
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```
 
-## Learn More
+Copy the `whsec_…` secret it prints into `STRIPE_WEBHOOK_SECRET`.
 
-To learn more about Next.js, take a look at the following resources:
+## 9. Deploy to Netlify
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Push this repo to GitHub.
+2. In Netlify, **Add new site → Import from Git** and select the repo.
+   The build settings come from [`netlify.toml`](netlify.toml).
+3. **Site configuration → Environment variables**: add every variable from
+   `.env.example`. Set `NEXT_PUBLIC_SITE_URL` to your Netlify URL
+   (e.g. `https://your-site.netlify.app`).
+4. Deploy.
+5. In Stripe, **Developers → Webhooks → Add endpoint**:
+   - URL: `https://your-site.netlify.app/api/stripe/webhook`
+   - Event: `checkout.session.completed`
+   - Copy the signing secret into the `STRIPE_WEBHOOK_SECRET` env var and redeploy.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+> **Note:** AI generation can take ~30–60s. If Netlify times out the
+> `/api/proposals/generate` function, raise the function timeout in
+> **Site configuration → Functions**.
 
-## Deploy on Vercel
+## 10. Try the full flow
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Sign in → **New proposal** → fill the form → **Generate proposal**.
+2. Review/edit the draft → **Save & done**.
+3. On the proposal page, **Send to client**, then **Copy** the link.
+4. Open the link in an incognito window → **Review & sign** (try both typed
+   and drawn) → **Pay**.
+5. Use Stripe test card **`4242 4242 4242 4242`**, any future expiry, any CVC.
+6. After payment you'll see the success animation; the dashboard shows
+   **Paid**.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project structure
+
+```
+app/
+  (app)/           Authenticated app — dashboard, proposal new/edit/overview
+  p/[slug]/        Public proposal page — sign + pay (no auth)
+  api/             AI generation, public actions, Stripe webhook
+components/        UI, proposal renderer, signature pad, success animation
+lib/               Supabase clients, Anthropic, Stripe, template, helpers
+supabase/migrations/0001_init.sql   Database schema + RLS
+docs/proposal template.pdf          The source template this default is based on
+```
