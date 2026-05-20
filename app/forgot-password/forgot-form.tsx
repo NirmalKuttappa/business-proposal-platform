@@ -1,17 +1,14 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Field, Spinner, inputClass } from "@/components/ui";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export function LoginForm({ redirectTo }: { redirectTo: string }) {
-  const router = useRouter();
+export function ForgotForm() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,15 +16,32 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
     setError(null);
 
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+    });
 
     if (error) {
       setError(error.message);
       setLoading(false);
       return;
     }
-    router.push(redirectTo);
-    router.refresh();
+    setSent(true);
+    setLoading(false);
+  }
+
+  if (sent) {
+    return (
+      <div className="text-center">
+        <p className="text-[15px] leading-relaxed text-ink-soft">
+          If <span className="font-medium text-ink">{email}</span> has an
+          account, a password-reset link is on its way. Check your inbox (and
+          your spam folder).
+        </p>
+        <p className="mt-3 text-[13px] text-ink-faint">
+          The link expires in an hour.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -43,26 +57,6 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
           placeholder="you@company.com"
         />
       </Field>
-      <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[14px] font-medium text-ink">Password</span>
-          <Link
-            href="/forgot-password"
-            className="text-[13px] text-accent hover:underline"
-          >
-            Forgot password?
-          </Link>
-        </div>
-        <input
-          type="password"
-          required
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className={inputClass}
-          placeholder="••••••••"
-        />
-      </div>
 
       {error ? (
         <p className="rounded-lg bg-[#fbeaea] px-3 py-2 text-[13px] text-[#c0392b]">
@@ -72,7 +66,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 
       <Button type="submit" disabled={loading} className="w-full">
         {loading ? <Spinner /> : null}
-        {loading ? "Signing in…" : "Sign in"}
+        {loading ? "Sending…" : "Send reset link"}
       </Button>
     </form>
   );

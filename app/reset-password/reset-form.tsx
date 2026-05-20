@@ -1,68 +1,68 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Field, Spinner, inputClass } from "@/components/ui";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export function LoginForm({ redirectTo }: { redirectTo: string }) {
+export function ResetForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
-    const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    if (password !== confirm) {
+      setError("Passwords don&rsquo;t match.");
+      return;
+    }
 
+    setLoading(true);
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.auth.updateUser({ password });
     if (error) {
       setError(error.message);
       setLoading(false);
       return;
     }
-    router.push(redirectTo);
+    router.push("/dashboard");
     router.refresh();
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <Field label="Email">
-        <input
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className={inputClass}
-          placeholder="you@company.com"
-        />
-      </Field>
-      <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[14px] font-medium text-ink">Password</span>
-          <Link
-            href="/forgot-password"
-            className="text-[13px] text-accent hover:underline"
-          >
-            Forgot password?
-          </Link>
-        </div>
+      <Field label="New password" hint="At least 6 characters.">
         <input
           type="password"
           required
-          autoComplete="current-password"
+          minLength={6}
+          autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className={inputClass}
           placeholder="••••••••"
         />
-      </div>
+      </Field>
+      <Field label="Confirm new password">
+        <input
+          type="password"
+          required
+          minLength={6}
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          className={inputClass}
+          placeholder="••••••••"
+        />
+      </Field>
 
       {error ? (
         <p className="rounded-lg bg-[#fbeaea] px-3 py-2 text-[13px] text-[#c0392b]">
@@ -72,7 +72,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 
       <Button type="submit" disabled={loading} className="w-full">
         {loading ? <Spinner /> : null}
-        {loading ? "Signing in…" : "Sign in"}
+        {loading ? "Updating…" : "Update password"}
       </Button>
     </form>
   );
