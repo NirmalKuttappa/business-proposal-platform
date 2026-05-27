@@ -1,3 +1,5 @@
+**Deployed on Netlify: businessprop-test-a06c.netlify.app**
+
 # Proposals
 
 Generate polished client proposals with AI, share them as a web page, and
