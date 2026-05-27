@@ -1,4 +1,5 @@
-**Deployed on Netlify: <businessprop-test-a06c.netlify.app> **
+#Deployed Link
+**Netlify: [businessprop-test-a06c.netlify.app](https://businessprop-test-a06c.netlify.app)**
 
 # Proposals
 
